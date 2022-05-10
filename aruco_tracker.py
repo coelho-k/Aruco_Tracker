@@ -12,11 +12,14 @@ import numpy as np
 import cv2
 import cv2.aruco as aruco
 import glob
-
-cap = cv2.VideoCapture(0)
+import time
+import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation as R
+import mathutils
 
 ####---------------------- CALIBRATION ---------------------------
 # termination criteria for the iterative algorithm
+'''
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
@@ -30,14 +33,16 @@ imgpoints = [] # 2d points in image plane.
 
 # iterating through all calibration images
 # in the folder
-images = glob.glob('calib_images/checkerboard/*.jpg')
+images = glob.glob('images/*.jpg')
 
 for fname in images:
     img = cv2.imread(fname)
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    plt.imshow(gray); plt.show()
 
     # find the chess board (calibration pattern) corners
     ret, corners = cv2.findChessboardCorners(gray, (7,6),None)
+    print(corners)
 
     # if calibration pattern is found, add object points,
     # image points (after refining them)
@@ -53,67 +58,149 @@ for fname in images:
 
 
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
+'''
+
+mtx =  np.array([
+            [
+                462.138671875,
+                0.0,
+                320.0
+            ],
+            [
+                0.0,
+                462.138671875,
+                240.0
+            ],
+            [
+                0.0,
+                0.0,
+                1.0
+            ]
+        ])
+
+# Is 0 the way to define no distortion ?
+dist = np.array([[1e-10,1e-10,1e-10,1e-10,1e-10]])
+
+images = glob.glob('aruco-renders-2/aruco-renders-2/scene-000000/*.png')
+
+ref = np.array([
+                        [
+                            0.9105318188667297,
+                            0.4134390652179718,
+                            -2.769368734334421e-09,
+                            -0.008365370333194733
+                        ],
+                        [
+                            -0.2648942172527313,
+                            0.5833861231803894,
+                            0.7677836418151855,
+                            -0.08716844022274017
+                        ],
+                        [
+                            0.3174317181110382,
+                            -0.6990914344787598,
+                            0.6407092213630676,
+                            -0.36377426981925964
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ])
 
 ###------------------ ARUCO TRACKER ---------------------------
-while (True):
-    ret, frame = cap.read()
-    #if ret returns false, there is likely a problem with the webcam/camera.
-    #In that case uncomment the below line, which will replace the empty frame 
-    #with a test image used in the opencv docs for aruco at https://www.docs.opencv.org/4.5.3/singlemarkersoriginal.jpg
-    # frame = cv2.imread('./images/test image.jpg') 
 
-    # operations on the frame
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+#ret, frame = cap.read()
+#if ret returns false, there is likely a problem with the webcam/camera.
+#In that case uncomment the below line, which will replace the empty frame 
+#with a test image used in the opencv docs for aruco at https://www.docs.opencv.org/4.5.3/singlemarkersoriginal.jpg
 
-    # set dictionary size depending on the aruco marker selected
-    aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
+#frame = cv2.imread('images/test image.jpg')
+#print(frame.dtype)
+frame = cv2.imread('aruco-renders-2/aruco-renders-2/scene-000000/000003.rgb.png') 
 
-    # detector parameters can be set here (List of detection parameters[3])
-    parameters = aruco.DetectorParameters_create()
-    parameters.adaptiveThreshConstant = 10
+# operations on the frame
+gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # lists of ids and the corners belonging to each id
-    corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+# set dictionary size depending on the aruco marker selected
+aruco_dict = aruco.Dictionary_get(aruco.DICT_ARUCO_ORIGINAL)
 
-    # font for displaying text (below)
-    font = cv2.FONT_HERSHEY_SIMPLEX
+# detector parameters can be set here (List of detection parameters[3])
+parameters = aruco.DetectorParameters_create()
+parameters.adaptiveThreshConstant = 7
 
-    # check if the ids list is not empty
-    # if no check is added the code will crash
-    if np.all(ids != None):
+# lists of ids and the corners belonging to each id
+corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+print('No of corners = ', len(corners))
 
-        # estimate pose of each marker and return the values
-        # rvet and tvec-different from camera coefficients
-        rvec, tvec ,_ = aruco.estimatePoseSingleMarkers(corners, 0.05, mtx, dist)
-        #(rvec-tvec).any() # get rid of that nasty numpy value array error
+# font for displaying text (below)
+font = cv2.FONT_HERSHEY_SIMPLEX
 
-        for i in range(0, ids.size):
-            # draw axis for the aruco markers
-            aruco.drawAxis(frame, mtx, dist, rvec[i], tvec[i], 0.1)
+# check if the ids list is not empty
+# if no check is added the code will crash
+if np.all(ids != None):
 
-        # draw a square around the markers
-        aruco.drawDetectedMarkers(frame, corners)
+    r = R.from_euler('z', 180, degrees=True).as_matrix()
+    print(r)
+    # estimate pose of each marker and return the values
+    # rvet and tvec-different from camera coefficients
+    # 0 index means only using first Aruco marker from corner list
+    rvec, tvec ,_ = aruco.estimatePoseSingleMarkers(corners, 0.025, mtx, dist)
+    rvec = np.matmul(r, rvec[0].T)
+    print(rvec.shape, tvec.shape)
+    rvec_3x3 = cv2.Rodrigues(rvec)
+    rvec_3x3 = np.array(rvec_3x3[0])
+    rvec_3x3 = rvec_3x3.T
+    #rvec_3x3 = np.matmul(r, rvec_3x3)
+
+    tvec_3x1 = np.array(tvec[0])
+    print('Rot = ', rvec_3x3)
+    print('Trans = ', tvec_3x1)
 
 
-        # code to show ids of the marker found
-        strg = ''
-        for i in range(0, ids.size):
-            strg += str(ids[i][0])+', '
+    world2cam = np.zeros((4,4))
+    world2cam[0:3,0:3] = rvec_3x3
+    world2cam[0:3,3] = tvec_3x1
+    world2cam[3,3] = 1
+    #world2cam = np.linalg.inv(world2cam)
+    #print('world2cam = ', world2cam)
+    mat = mathutils.Matrix(world2cam)
+    print('Matrix world2cam = ', mat)
+    print('GT = ', ref)
 
-        cv2.putText(frame, "Id: " + strg, (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
+    r, _ = cv2.Rodrigues(world2cam[0:3,0:3].dot(ref[0:3,0:3].T))
+    rotation_error_from_identity = np.linalg.norm(r)
+    print('Rotation error = ', rotation_error_from_identity)
+
+    for i in range(0, ids.size):
+        # draw axis for the aruco markers
+        aruco.drawAxis(frame, mtx, dist, rvec[i], tvec[i], 0.1)
+
+    # draw a square around the markers
+    aruco.drawDetectedMarkers(frame, corners)
+
+    # code to show ids of the marker found
+    strg = ''
+    for i in range(0, ids.size):
+        strg += str(ids[i][0])+', '
+
+    cv2.putText(frame, "Id: " + strg, (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
 
 
-    else:
-        # code to show 'No Ids' when no markers are found
-        cv2.putText(frame, "No Ids", (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
+else:
+    # code to show 'No Ids' when no markers are found
+    cv2.putText(frame, "No Ids", (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
 
-    # display the resulting frame
-    cv2.imshow('frame',frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+# display the resulting frame
+cv2.imshow('frame',frame)
+cv2.imwrite('output.jpg', frame)
+if cv2.waitKey(1) & 0xFF == ord('q'):
+    # When everything done, release the capture
+    cap.release()
+    cv2.destroyAllWindows()
 
-# When everything done, release the capture
-cap.release()
-cv2.destroyAllWindows()
+
 
 
