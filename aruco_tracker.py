@@ -83,24 +83,25 @@ dist = np.array([[1e-10,1e-10,1e-10,1e-10,1e-10]])
 
 images = glob.glob('aruco-renders-2/aruco-renders-2/scene-000000/*.png')
 
+# BlenderCAM
 ref = np.array([
                         [
-                            0.9105318188667297,
-                            0.4134390652179718,
-                            -2.769368734334421e-09,
-                            -0.008365370333194733
+                            0.6659689545631409,
+                            0.7459794878959656,
+                            6.348331282879371e-08,
+                            -0.05059482902288437
                         ],
                         [
-                            -0.2648942172527313,
-                            0.5833861231803894,
-                            0.7677836418151855,
-                            -0.08716844022274017
+                            -0.3886394500732422,
+                            0.3469555675983429,
+                            0.853569746017456,
+                            -0.07008795440196991
                         ],
                         [
-                            0.3174317181110382,
-                            -0.6990914344787598,
-                            0.6407092213630676,
-                            -0.36377426981925964
+                            0.6367454528808594,
+                            -0.5684509873390198,
+                            0.5209786891937256,
+                            -0.4610074758529663
                         ],
                         [
                             0.0,
@@ -119,7 +120,7 @@ ref = np.array([
 
 #frame = cv2.imread('images/test image.jpg')
 #print(frame.dtype)
-frame = cv2.imread('aruco-renders-2/aruco-renders-2/scene-000000/000003.rgb.png') 
+frame = cv2.imread('aruco-renders-2/aruco-renders-2/scene-000000/000005.rgb.png') 
 
 # operations on the frame
 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -142,17 +143,19 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 # if no check is added the code will crash
 if np.all(ids != None):
 
-    r = R.from_euler('z', 180, degrees=True).as_matrix()
+    r = R.from_euler('x', 180, degrees=True).as_matrix()
     print(r)
     # estimate pose of each marker and return the values
     # rvet and tvec-different from camera coefficients
     # 0 index means only using first Aruco marker from corner list
-    rvec, tvec ,_ = aruco.estimatePoseSingleMarkers(corners, 0.025, mtx, dist)
-    rvec = np.matmul(r, rvec[0].T)
+    rvec, tvec ,_ = aruco.estimatePoseSingleMarkers(corners, 0.05, mtx, dist)
+    # rvec = np.matmul(r, rvec[0].T)
     print(rvec.shape, tvec.shape)
-    rvec_3x3 = cv2.Rodrigues(rvec)
+    print('Rvec = ', rvec)
+
+    rvec_3x3 = cv2.Rodrigues(rvec[0])
     rvec_3x3 = np.array(rvec_3x3[0])
-    rvec_3x3 = rvec_3x3.T
+    #rvec_3x3 = np.linalg.inv(rvec_3x3)
     #rvec_3x3 = np.matmul(r, rvec_3x3)
 
     tvec_3x1 = np.array(tvec[0])
@@ -164,7 +167,10 @@ if np.all(ids != None):
     world2cam[0:3,0:3] = rvec_3x3
     world2cam[0:3,3] = tvec_3x1
     world2cam[3,3] = 1
-    #world2cam = np.linalg.inv(world2cam)
+    world2cam = np.linalg.inv(world2cam)
+    rx = world2cam[0:3,0:3].copy()
+    rx = rx @ r
+    world2cam[0:3,0:3] = rx
     #print('world2cam = ', world2cam)
     mat = mathutils.Matrix(world2cam)
     print('Matrix world2cam = ', mat)
