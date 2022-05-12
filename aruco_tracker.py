@@ -84,6 +84,7 @@ dist = np.array([[1e-10,1e-10,1e-10,1e-10,1e-10]])
 images = glob.glob('aruco-renders-2/aruco-renders-2/scene-000000/*.png')
 
 # BlenderCAM
+# To convert to numpyCAM, change the rotation from 180 -> 90
 ref = np.array([
                         [
                             0.6659689545631409,
