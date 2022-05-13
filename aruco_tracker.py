@@ -84,25 +84,25 @@ dist = np.array([[1e-10,1e-10,1e-10,1e-10,1e-10]])
 images = glob.glob('aruco-renders-2/aruco-renders-2/scene-000000/*.png')
 
 # BlenderCAM
-# To convert to numpyCAM, change the rotation from 180 -> 90
+# To convert to numpyCAM, change the 'x' rotation from 180 -> 0
 ref = np.array([
                         [
                             0.6659689545631409,
                             0.7459794878959656,
-                            6.348331282879371e-08,
+                            6.100576399603597e-08,
                             -0.05059482902288437
                         ],
                         [
-                            -0.3886394500732422,
-                            0.3469555675983429,
-                            0.853569746017456,
-                            -0.07008795440196991
+                            0.3886394202709198,
+                            -0.34695571660995483,
+                            -0.8535698056221008,
+                            0.07008799910545349
                         ],
                         [
-                            0.6367454528808594,
-                            -0.5684509873390198,
-                            0.5209786891937256,
-                            -0.4610074758529663
+                            -0.6367455124855042,
+                            0.5684510469436646,
+                            -0.5209788084030151,
+                            0.4610074758529663
                         ],
                         [
                             0.0,
@@ -144,7 +144,10 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 # if no check is added the code will crash
 if np.all(ids != None):
 
-    r = R.from_euler('x', 180, degrees=True).as_matrix()
+    # TODO: Do a check for blendercam or numpycam
+    # IF blendercam: x rotation is 180
+    # IF numpycam: x rotation is 0
+    r = R.from_euler('x', 0, degrees=True).as_matrix()
     print(r)
     # estimate pose of each marker and return the values
     # rvet and tvec-different from camera coefficients
